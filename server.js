@@ -11,46 +11,41 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ---------- Multer (Resume Upload) ----------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+// ---------------- Multer (Resume Upload in memory) ----------------
+const upload = multer({ storage: multer.memoryStorage() });
+
+// ---------------- Nodemailer Transporter (SendGrid) ----------------
+const transporter = nodemailer.createTransport({
+  host: "smtp.sendgrid.net",
+  port: 587,
+  auth: {
+    user: "apikey", // This is SendGrid's required username
+    pass: process.env.SENDGRID_API_KEY, // Put your SendGrid API key in .env
   },
 });
 
-const upload = multer({ storage });
+// ✅ Optional: verify transporter on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("Mailer verification failed:", error);
+  } else {
+    console.log("Mailer ready to send emails");
+  }
+});
 
-// ---------- Route ----------
+// ---------------- /apply-job Route ----------------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
   try {
-    console.log("Request received");
-    console.log(req.body);
-    console.log(req.file);
-
     const { firstName, lastName, email, phone, experience } = req.body;
 
     if (!req.file) {
       return res.status(400).json({ message: "Resume not uploaded" });
     }
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // ✅ Verify transporter
-    await transporter.verify();
-
     const mailOptions = {
-      from: `"Career Form" <${process.env.EMAIL}>`, // ✅ FIX
-      to: process.env.EMAIL, // company email
-      replyTo: email, // applicant email
+      from: `"Career Form" <${process.env.EMAIL}>`,
+      to: process.env.EMAIL, // Company email
+      replyTo: email,        // Applicant email
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -62,7 +57,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       attachments: [
         {
           filename: req.file.originalname,
-          path: req.file.path,
+          content: req.file.buffer, // Use memory buffer
         },
       ],
     };
@@ -82,21 +77,14 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
   }
 });
 
+// ---------------- /contact Route ----------------
 app.post("/contact", async (req, res) => {
-  const { name, email, phone, message } = req.body;
-
-  if (!name || !email || !message) {
-    return res.status(400).json({ message: "All required fields missing" });
-  }
-
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    const { name, email, phone, message } = req.body;
+
+    if (!name || !email || !message) {
+      return res.status(400).json({ message: "All required fields missing" });
+    }
 
     const mailOptions = {
       from: email,
@@ -114,14 +102,14 @@ app.post("/contact", async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
-    res.status(200).json({ message: "Message sent successfully" });
+    res.status(200).json({ success: true, message: "Message sent successfully" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to send message" });
+    console.error("MAIL ERROR 👉", error);
+    res.status(500).json({ success: false, message: "Failed to send message" });
   }
 });
 
-// ---------- Server ----------
+// ---------------- Server ----------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
