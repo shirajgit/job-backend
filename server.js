@@ -5,12 +5,14 @@ import dotenv from "dotenv";
 import { Resend } from "resend";
 import mammoth from "mammoth";
 import { createRequire } from "module";
-
+ 
 dotenv.config();
 
-// ✅ Fix for pdf-parse (CommonJS → ESM)
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+
+// ✅ FIXED pdf-parse import
+const pdfParseModule = require("pdf-parse");
+const pdfParse = pdfParseModule.default || pdfParseModule;
 
 const app = express();
 app.use(cors());
