@@ -3,12 +3,6 @@ import nodemailer from "nodemailer";
 import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
-import fs from "fs";
-
-if (!fs.existsSync("uploads")) {
-  fs.mkdirSync("uploads");
-}
-
 
 dotenv.config();
 
@@ -16,24 +10,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
- 
 
-// Store file in memory (RAM)
-const storage = multer({
+// ✅ Multer Memory Storage
+const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-
-const upload = multer({ storage });
-
-// ---------- Route: Apply Job ----------
+// ---------- Apply Job ----------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
   try {
-    console.log("Request received");
-    console.log(req.body);
-    console.log(req.file);
-
     const { firstName, lastName, email, phone, experience } = req.body;
 
     if (!req.file) {
@@ -48,13 +34,10 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       },
     });
 
-    // ✅ Verify transporter
-    await transporter.verify();
-
     const mailOptions = {
-      from: process.env.EMAIL, // company email
-      replyTo: email, // applicant email
-      to: process.env.EMAIL, // send to company
+      from: process.env.EMAIL,
+      replyTo: email,
+      to: process.env.EMAIL,
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -73,14 +56,14 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
-    res.status(200).json({ success: true, message: "Application submitted successfully" });
-  } catch (error) {
-    console.error("MAIL ERROR 👉", error);
-    res.status(500).json({ success: false, message: "Email sending failed" });
+    res.json({ success: true, message: "Application submitted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Email sending failed" });
   }
 });
 
-// ---------- Route: Contact ----------
+// ---------- Contact ----------
 app.post("/contact", async (req, res) => {
   const { name, email, phone, message } = req.body;
 
@@ -97,7 +80,7 @@ app.post("/contact", async (req, res) => {
       },
     });
 
-    const mailOptions = {
+    await transporter.sendMail({
       from: email,
       to: process.env.EMAIL,
       subject: `📩 New Contact Message from ${name}`,
@@ -106,22 +89,19 @@ app.post("/contact", async (req, res) => {
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Phone:</strong> ${phone || "N/A"}</p>
-        <p><strong>Message:</strong></p>
         <p>${message}</p>
       `,
-    };
+    });
 
-    await transporter.sendMail(mailOptions);
-
-    res.status(200).json({ message: "Message sent successfully" });
-  } catch (error) {
-    console.error(error);
+    res.json({ message: "Message sent successfully" });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to send message" });
   }
 });
 
 // ---------- Server ----------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
