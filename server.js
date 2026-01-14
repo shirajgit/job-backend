@@ -77,6 +77,10 @@ app.post("/contact", async (req, res) => {
     return res.status(400).json({ message: "All required fields missing" });
   }
 
+  if (!/\S+@\S+\.\S+/.test(email)) {
+    return res.status(400).json({ message: "Invalid email address" });
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -87,7 +91,8 @@ app.post("/contact", async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: email,
+      from: process.env.EMAIL,
+      replyTo: email,
       to: process.env.EMAIL,
       subject: `📩 New Contact Message from ${name}`,
       html: `
@@ -101,10 +106,11 @@ app.post("/contact", async (req, res) => {
 
     res.json({ message: "Message sent successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Contact route error:", err);
     res.status(500).json({ message: "Failed to send message" });
   }
 });
+
 
 // ---------- Server ----------
 const PORT = process.env.PORT;
