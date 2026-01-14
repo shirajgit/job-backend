@@ -20,6 +20,10 @@ const upload = multer({
 // Initialize Resend client
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+app.get("/", (req, res) => {
+  res.send("Job Application Backend is running");
+});
+
 // ---------- Apply Job ----------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
   try {
@@ -31,7 +35,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
 
     await resend.emails.send({
       from: process.env.RESEND_EMAIL, // Your verified sender email
-      to: process.env.RESEND_EMAIL,   // Where you want to receive applications
+      to: email,   // Where you want to receive applications
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -86,6 +90,6 @@ app.post("/contact", async (req, res) => {
 
 // ---------- Server ----------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
