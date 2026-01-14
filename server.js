@@ -3,7 +3,7 @@ import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
-import pdfParse from "pdf-parse";
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import mammoth from "mammoth";
 
 dotenv.config();
