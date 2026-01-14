@@ -16,10 +16,20 @@ app.get("/", (req, res) => {
   res.status(200).send("✅ Server is running");
 });
 
-// ✅ Multer Memory Storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 3 * 1024 * 1024 }, // 3MB safe
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype === "application/pdf" ||
+      file.mimetype ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF or DOCX allowed"));
+    }
+  },
 });
 
 // ✅ Initialize Resend safely
@@ -35,7 +45,6 @@ if (!process.env.RESEND_EMAIL) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ---------- Apply Job ----------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
   try {
     const { firstName, lastName, email, phone, experience } = req.body;
@@ -44,9 +53,15 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       return res.status(400).json({ message: "Resume not uploaded" });
     }
 
+    console.log("📄 File received:", {
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      size: req.file.size,
+    });
+
     await resend.emails.send({
       from: process.env.RESEND_EMAIL,
-      to:"shirajmujawar03@gmail.com",
+      to: "shirajmujawar03@gmail.com",
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -59,6 +74,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
         {
           name: req.file.originalname,
           data: req.file.buffer.toString("base64"),
+          content_type: req.file.mimetype, // ✅ FIX
         },
       ],
     });
@@ -69,6 +85,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
     res.status(500).json({ message: "Email sending failed" });
   }
 });
+
 
 // ---------- Contact ----------
 app.post("/contact", async (req, res) => {
