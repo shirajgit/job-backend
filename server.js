@@ -3,6 +3,12 @@ import nodemailer from "nodemailer";
 import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "fs";
+
+if (!fs.existsSync("uploads")) {
+  fs.mkdirSync("uploads");
+}
+
 
 dotenv.config();
 
@@ -10,16 +16,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+ 
 
-// ---------- Multer (Resume Upload) ----------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
+// Store file in memory (RAM)
+const storage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
+
 
 const upload = multer({ storage });
 
@@ -62,7 +66,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       attachments: [
         {
           filename: req.file.originalname,
-          path: req.file.path,
+          content: req.file.buffer,
         },
       ],
     };
