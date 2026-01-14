@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
-import Resend from "resend";
+import {Resend} from "resend";
 
 dotenv.config();
 
