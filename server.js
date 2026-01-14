@@ -1,8 +1,8 @@
 import express from "express";
-import nodemailer from "nodemailer";
 import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
+import Resend from "resend";
 
 dotenv.config();
 
@@ -17,11 +17,8 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-
-app.get("/", (req, res) => {
-  res.status(200).send("OK");
-});
-
+// Initialize Resend client
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---------- Apply Job ----------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
@@ -32,18 +29,9 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       return res.status(400).json({ message: "Resume not uploaded" });
     }
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL,
-      replyTo: email,
-      to: process.env.EMAIL,
+    await resend.emails.send({
+      from: process.env.RESEND_EMAIL, // Your verified sender email
+      to: process.env.RESEND_EMAIL,   // Where you want to receive applications
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -54,13 +42,11 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       `,
       attachments: [
         {
-          filename: req.file.originalname,
-          content: req.file.buffer,
+          name: req.file.originalname,
+          data: req.file.buffer.toString("base64"), // Resend expects base64
         },
       ],
-    };
-
-    await transporter.sendMail(mailOptions);
+    });
 
     res.json({ success: true, message: "Application submitted successfully" });
   } catch (err) {
@@ -77,23 +63,10 @@ app.post("/contact", async (req, res) => {
     return res.status(400).json({ message: "All required fields missing" });
   }
 
-  if (!/\S+@\S+\.\S+/.test(email)) {
-    return res.status(400).json({ message: "Invalid email address" });
-  }
-
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL,
-      replyTo: email,
-      to: process.env.EMAIL,
+    await resend.emails.send({
+      from: process.env.RESEND_EMAIL,
+      to: process.env.RESEND_EMAIL,
       subject: `📩 New Contact Message from ${name}`,
       html: `
         <h2>New Contact Request</h2>
@@ -106,14 +79,13 @@ app.post("/contact", async (req, res) => {
 
     res.json({ message: "Message sent successfully" });
   } catch (err) {
-    console.error("Contact route error:", err);
+    console.error(err);
     res.status(500).json({ message: "Failed to send message" });
   }
 });
 
-
 // ---------- Server ----------
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
