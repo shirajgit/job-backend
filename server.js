@@ -4,15 +4,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
 import mammoth from "mammoth";
-import { createRequire } from "module";
- 
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.js";
+
 dotenv.config();
-
-const require = createRequire(import.meta.url);
-
-// ✅ FIXED pdf-parse import
-const pdfParseModule = require("pdf-parse");
-const pdfParse = pdfParseModule.default || pdfParseModule;
 
 const app = express();
 app.use(cors());
@@ -24,29 +18,16 @@ app.get("/", (req, res) => {
   res.send("✅ Server running");
 });
 
-// ✅ Multer memory storage
+// ✅ Multer
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 3 * 1024 * 1024 }, // 3MB
-  fileFilter: (req, file, cb) => {
-    if (
-      file.mimetype === "application/pdf" ||
-      file.mimetype ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF or DOCX allowed"));
-    }
-  },
+  limits: { fileSize: 3 * 1024 * 1024 },
 });
 
-// ✅ Env check
+// ✅ Resend
 if (!process.env.RESEND_API_KEY || !process.env.RESEND_EMAIL) {
-  console.error("❌ Missing Resend ENV variables");
-  process.exit(1);
+  throw new Error("Missing RESEND env variables");
 }
-
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ================= APPLY JOB =================
@@ -55,18 +36,27 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
     const { firstName, lastName, email, phone, experience } = req.body;
 
     if (!req.file) {
-      return res.status(400).json({ message: "Resume not uploaded" });
+      return res.status(400).json({ message: "Resume missing" });
     }
 
-    let resumeText = "Unable to extract resume text";
+    let resumeText = "Could not extract resume text";
 
-    // ✅ PDF
+    // ---------- PDF (pdfjs-dist) ----------
     if (req.file.mimetype === "application/pdf") {
-      const data = await pdfParse(req.file.buffer);
-      resumeText = data.text;
+      const pdf = await pdfjs.getDocument({
+        data: new Uint8Array(req.file.buffer),
+      }).promise;
+
+      let text = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(" ") + "\n";
+      }
+      resumeText = text;
     }
 
-    // ✅ DOCX
+    // ---------- DOCX ----------
     if (
       req.file.mimetype ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -89,7 +79,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
         <p><b>Experience:</b> ${experience}</p>
 
         <h3>📄 Resume Text</h3>
-        <pre style="white-space:pre-wrap;font-size:14px;">
+        <pre style="white-space:pre-wrap;">
 ${resumeText.substring(0, 6000)}
         </pre>
       `,
@@ -113,10 +103,6 @@ ${resumeText.substring(0, 6000)}
 app.post("/contact", async (req, res) => {
   try {
     const { name, email, phone, message } = req.body;
-
-    if (!name || !email || !message) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
 
     await resend.emails.send({
       from: process.env.RESEND_EMAIL,
