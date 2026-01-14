@@ -46,7 +46,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
 
     await resend.emails.send({
       from: process.env.RESEND_EMAIL,
-      to: process.env.RESEND_EMAIL,
+      to: 'shirajmujawar03@gmail.com',
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -81,7 +81,7 @@ app.post("/contact", async (req, res) => {
 
     await resend.emails.send({
       from: process.env.RESEND_EMAIL,
-      to: process.env.RESEND_EMAIL,
+      to: "shirajmujawar03@gmail.com",
       subject: `📩 New Contact Message from ${name}`,
       html: `
         <h2>New Contact Request</h2>
