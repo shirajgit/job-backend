@@ -17,6 +17,12 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
+
 // ---------- Apply Job ----------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
   try {
@@ -101,7 +107,7 @@ app.post("/contact", async (req, res) => {
 });
 
 // ---------- Server ----------
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT ;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
