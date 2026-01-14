@@ -3,19 +3,23 @@ import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import mammoth from "mammoth";
+import { createRequire } from "module";
 
 dotenv.config();
+
+// ✅ Fix for pdf-parse (CommonJS → ESM)
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Health check (Render / Railway needs this)
+// ✅ Health check
 app.get("/", (req, res) => {
-  res.status(200).send("✅ Server is running");
+  res.send("✅ Server running");
 });
 
 // ✅ Multer memory storage
@@ -35,9 +39,9 @@ const upload = multer({
   },
 });
 
-// ✅ ENV CHECK
+// ✅ Env check
 if (!process.env.RESEND_API_KEY || !process.env.RESEND_EMAIL) {
-  console.error("❌ Missing RESEND env variables");
+  console.error("❌ Missing Resend ENV variables");
   process.exit(1);
 }
 
@@ -52,7 +56,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       return res.status(400).json({ message: "Resume not uploaded" });
     }
 
-    let resumeText = "❌ Could not extract resume text";
+    let resumeText = "Unable to extract resume text";
 
     // ✅ PDF
     if (req.file.mimetype === "application/pdf") {
@@ -96,12 +100,9 @@ ${resumeText.substring(0, 6000)}
       ],
     });
 
-    res.json({
-      success: true,
-      message: "Application submitted successfully",
-    });
-  } catch (error) {
-    console.error("❌ Apply Job Error:", error);
+    res.json({ success: true, message: "Application submitted successfully" });
+  } catch (err) {
+    console.error("❌ Apply Job Error:", err);
     res.status(500).json({ message: "Email sending failed" });
   }
 });
@@ -128,8 +129,8 @@ app.post("/contact", async (req, res) => {
     });
 
     res.json({ message: "Message sent successfully" });
-  } catch (error) {
-    console.error("❌ Contact Error:", error);
+  } catch (err) {
+    console.error("❌ Contact Error:", err);
     res.status(500).json({ message: "Failed to send message" });
   }
 });
