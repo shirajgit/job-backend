@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import cors from "cors";
 import dotenv from "dotenv";
-import {Resend} from "resend";
+import { Resend } from "resend";
 
 dotenv.config();
 
@@ -11,18 +11,29 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ✅ Health check (VERY IMPORTANT for Railway)
+app.get("/", (req, res) => {
+  res.status(200).send("✅ Server is running");
+});
+
 // ✅ Multer Memory Storage
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ✅ Initialize Resend safely
+if (!process.env.RESEND_API_KEY) {
+  console.error("❌ RESEND_API_KEY missing");
+  process.exit(1);
+}
 
-app.get("/", (req, res) => {
-  res.send("Job Application Backend is running");
-});
+if (!process.env.RESEND_EMAIL) {
+  console.error("❌ RESEND_EMAIL missing");
+  process.exit(1);
+}
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ---------- Apply Job ----------
 app.post("/apply-job", upload.single("resume"), async (req, res) => {
@@ -34,8 +45,8 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
     }
 
     await resend.emails.send({
-      from: process.env.RESEND_EMAIL, // Your verified sender email
-      to: email,   // Where you want to receive applications
+      from: process.env.RESEND_EMAIL,
+      to: process.env.RESEND_EMAIL,
       subject: "New Job Application",
       html: `
         <h3>New Job Application</h3>
@@ -47,27 +58,27 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
       attachments: [
         {
           name: req.file.originalname,
-          data: req.file.buffer.toString("base64"), // Resend expects base64
+          data: req.file.buffer.toString("base64"),
         },
       ],
     });
 
     res.json({ success: true, message: "Application submitted successfully" });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("❌ Apply Job Error:", error);
     res.status(500).json({ message: "Email sending failed" });
   }
 });
 
 // ---------- Contact ----------
 app.post("/contact", async (req, res) => {
-  const { name, email, phone, message } = req.body;
-
-  if (!name || !email || !message) {
-    return res.status(400).json({ message: "All required fields missing" });
-  }
-
   try {
+    const { name, email, phone, message } = req.body;
+
+    if (!name || !email || !message) {
+      return res.status(400).json({ message: "All required fields missing" });
+    }
+
     await resend.emails.send({
       from: process.env.RESEND_EMAIL,
       to: process.env.RESEND_EMAIL,
@@ -82,14 +93,14 @@ app.post("/contact", async (req, res) => {
     });
 
     res.json({ message: "Message sent successfully" });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("❌ Contact Error:", error);
     res.status(500).json({ message: "Failed to send message" });
   }
 });
 
 // ---------- Server ----------
-const PORT = process.env.PORT ;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
