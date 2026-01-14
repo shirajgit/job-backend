@@ -4,7 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Resend } from "resend";
 import mammoth from "mammoth";
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.js";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
 dotenv.config();
 
@@ -13,18 +13,18 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Health check
+// Health check
 app.get("/", (req, res) => {
   res.send("✅ Server running");
 });
 
-// ✅ Multer
+// Multer
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 3 * 1024 * 1024 },
 });
 
-// ✅ Resend
+// Resend
 if (!process.env.RESEND_API_KEY || !process.env.RESEND_EMAIL) {
   throw new Error("Missing RESEND env variables");
 }
@@ -41,7 +41,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
 
     let resumeText = "Could not extract resume text";
 
-    // ---------- PDF (pdfjs-dist) ----------
+    // ---------- PDF ----------
     if (req.file.mimetype === "application/pdf") {
       const pdf = await pdfjs.getDocument({
         data: new Uint8Array(req.file.buffer),
@@ -79,7 +79,7 @@ app.post("/apply-job", upload.single("resume"), async (req, res) => {
         <p><b>Experience:</b> ${experience}</p>
 
         <h3>📄 Resume Text</h3>
-        <pre style="white-space:pre-wrap;">
+        <pre style="white-space:pre-wrap;font-size:14px;">
 ${resumeText.substring(0, 6000)}
         </pre>
       `,
